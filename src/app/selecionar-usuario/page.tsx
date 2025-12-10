@@ -1,9 +1,36 @@
+"use client";
+
+import { useRouter } from 'next/navigation';
+import { useEffect } from 'react';
+
 export default function SelecionarUsuarioPage() {
+  const router = useRouter();
+
   const dummyUsers = [
     { id: '1', name: 'João da Silva' },
     { id: '2', name: 'Maria Souza' },
     { id: '3', name: 'Pedro Santos' },
   ];
+
+  const handleUserSelection = (user: { id: string; name: string }) => {
+    localStorage.setItem('selectedUser', JSON.stringify(user));
+    console.log(`Usuário selecionado e salvo no localStorage: ${user.name}`);
+    router.push('/'); // Navegar para a página principal após a seleção
+  };
+
+  const handleNewRelative = () => {
+    router.push('/cadastrar-parente'); // Navegar para a página de cadastro de novo parente
+  };
+
+  // Opcional: checar se já existe um usuário selecionado ao carregar a página
+  useEffect(() => {
+    const selectedUser = localStorage.getItem('selectedUser');
+    if (selectedUser) {
+      console.log('Usuário já selecionado:', JSON.parse(selectedUser).name);
+      // Você pode optar por redirecionar automaticamente ou exibir o usuário selecionado
+      // router.push('/');
+    }
+  }, []);
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
@@ -17,7 +44,7 @@ export default function SelecionarUsuarioPage() {
             <button
               key={user.id}
               className="w-full flex items-center justify-center py-3 px-4 border border-gray-300 dark:border-gray-700 rounded-md text-lg font-medium text-gray-800 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-              onClick={() => console.log(`Usuário selecionado: ${user.name}`)}
+              onClick={() => handleUserSelection(user)}
             >
               {user.name}
             </button>
@@ -26,7 +53,7 @@ export default function SelecionarUsuarioPage() {
 
         <button
           className="w-full flex items-center justify-center py-3 px-4 bg-blue-600 text-white rounded-md text-lg font-medium hover:bg-blue-700 transition-colors"
-          onClick={() => console.log('Navegar para cadastro de novo parente')}
+          onClick={handleNewRelative}
         >
           Cadastrar novo parente
         </button>
