@@ -1,0 +1,30 @@
+# Ficha Técnica - Projeto ItaSummer
+
+Este arquivo detalha as principais tecnologias, bibliotecas e serviços utilizados no desenvolvimento do projeto ItaSummer.
+
+## Core
+- **Framework:** Next.js (~16.0.8)
+- **Linguagem:** TypeScript
+- **Ambiente de Execução:** Node.js
+
+## Frontend & UI
+- **Framework de Componentes:** React
+- **Biblioteca de Componentes UI:** shadcn/ui
+- **Estilização:** Tailwind CSS
+- **Ícones:** Lucide React
+- **Calendário:** React Day Picker
+- **Fontes:** Geist (via next/font)
+- **Utilitários de Classe:** clsx, tailwind-merge
+
+## Backend & Dados
+- **Banco de Dados:** Supabase (PostgreSQL)
+- **Cliente de Acesso ao Banco:** @supabase/supabase-js
+
+## Ferramentas de Desenvolvimento (DevTools)
+- **Gerenciador de Pacotes:** npm
+- **Linter:** ESLint
+- **Build Tool:** Next.js CLI (com Turbopack em desenvolvimento)
+- **Controle de Versão:** Git & GitHub
+
+## Hospedagem (Planejada)
+- **Plataforma:** Vercel
