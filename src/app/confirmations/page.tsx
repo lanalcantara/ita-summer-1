@@ -62,7 +62,7 @@ export default function ConfirmationsPage() {
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center p-24">
-      <h1 className="text-4xl font-bold mb-8">Minhas Reservas para Confirmação</h1>
+      <h1 className="text-4xl font-bold mb-8">ItaSummer - Confirmações</h1>
       {error && <p className="text-red-500 mb-4">{error}</p>}
 
       {isLoading ? (
