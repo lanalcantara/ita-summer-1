@@ -1,17 +1,23 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-// For Textarea, assuming shadcn provides one, otherwise fallback to HTML
-// import { Textarea } from "@/components/ui/textarea"; // Uncomment if shadcn Textarea is added
+import { Textarea } from "@/components/ui/textarea"; // Assumindo que Textarea foi adicionado via shadcn
 
 interface Reservation {
   id: string;
   data_chegada: string;
   data_saida: string;
   status: string;
+}
+
+interface User {
+  id: string;
+  name: string;
+  level: number;
 }
 
 interface ChecklistState {
@@ -21,6 +27,7 @@ interface ChecklistState {
 }
 
 export default function CheckoutPage() {
+  const [currentUser, setCurrentUser] = React.useState<User | null>(null);
   const [currentReservation, setCurrentReservation] = React.useState<Reservation | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);
   const [error, setError] = React.useState<string | null>(null);
@@ -33,36 +40,42 @@ export default function CheckoutPage() {
   });
   const [freeComment, setFreeComment] = React.useState<string>("");
 
-  const fetchCurrentReservation = React.useCallback(async () => {
-    setIsLoading(true);
-    setError(null);
-    const placeholderUserId = "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11"; // TODO: Substituir pelo ID do usuário real
-
-    const today = new Date().toISOString().split("T")[0]; // "YYYY-MM-DD"
-
-    const { data, error } = await supabase
-      .from("reservas")
-      .select("id, data_chegada, data_saida, status")
-      .eq("usuario_responsavel", placeholderUserId)
-      .eq("status", "checked_in") // Apenas reservas com check-in feito
-      .lte("data_chegada", today) // Deve estar na reserva
-      .gte("data_saida", today) // E a data de saída ainda não passou (ou é hoje)
-      .limit(1);
-
-    if (error) {
-      console.error("Erro ao buscar reserva atual para checkout:", error);
-      setError("Erro ao carregar sua reserva atual para check-out.");
-    } else if (data && data.length > 0) {
-      setCurrentReservation(data[0]);
-    } else {
-      setCurrentReservation(null);
-    }
-    setIsLoading(false);
-  }, []);
-
   React.useEffect(() => {
+    const userString = localStorage.getItem("selectedUser");
+    if (!userString) {
+      setError("Nenhum usuário selecionado. Por favor, identifique-se primeiro.");
+      setIsLoading(false);
+      return;
+    }
+    const user: User = JSON.parse(userString);
+    setCurrentUser(user);
+
+    const fetchCurrentReservation = async () => {
+      setIsLoading(true);
+      setError(null);
+
+      const today = new Date().toISOString().split("T")[0];
+
+      const { data, error: fetchError } = await supabase
+        .from("reservas")
+        .select("id, data_chegada, data_saida, status")
+        .eq("usuario_responsavel", user.id)
+        .eq("status", "checked_in")
+        .limit(1);
+
+      if (fetchError) {
+        console.error("Erro ao buscar reserva atual para checkout:", fetchError);
+        setError("Erro ao carregar sua reserva atual para check-out.");
+      } else if (data && data.length > 0) {
+        setCurrentReservation(data[0]);
+      } else {
+        setCurrentReservation(null);
+      }
+      setIsLoading(false);
+    };
+
     fetchCurrentReservation();
-  }, [fetchCurrentReservation]);
+  }, []);
 
   const handleCheckout = async () => {
     if (!currentReservation) return;
@@ -71,7 +84,6 @@ export default function CheckoutPage() {
     setCheckoutSuccess(null);
     setError(null);
 
-    // 1. Atualizar status da reserva
     const { error: updateError } = await supabase
       .from("reservas")
       .update({ status: "concluido" })
@@ -84,11 +96,10 @@ export default function CheckoutPage() {
       return;
     }
 
-    // 2. Inserir feedback
     const { error: feedbackError } = await supabase.from("feedbacks").insert([
       {
         reserva_id: currentReservation.id,
-        checklist: checklistState, // Salva o estado do checklist como JSONB
+        checklist: checklistState,
         comentario_livre: freeComment,
       },
     ]);
@@ -98,7 +109,7 @@ export default function CheckoutPage() {
       setError("Reserva finalizada, mas houve um erro ao salvar o feedback.");
     } else {
       setCheckoutSuccess("Check-out realizado com sucesso! Obrigado pelo feedback.");
-      setCurrentReservation(null); // Remove a reserva da tela
+      setCurrentReservation(null);
       setCheklistState({ gas: false, windows: false, trash: false });
       setFreeComment("");
     }
@@ -107,76 +118,71 @@ export default function CheckoutPage() {
 
   const isCheckoutButtonDisabled = !(checklistState.gas && checklistState.windows && checklistState.trash) || isCheckingOut;
 
-  return (
-    <main className="flex min-h-screen flex-col items-center justify-center p-24">
-      <h1 className="text-4xl font-bold mb-8">ItaSummer - Check-out</h1>
-      {error && <p className="text-red-500 mb-4">{error}</p>}
+  const renderContent = () => {
+    if (isLoading) {
+      return <p className="text-gray-600">Verificando reservas para check-out...</p>;
+    }
 
-      {isLoading ? (
-        <p className="text-gray-600">Verificando reservas para check-out...</p>
-      ) : currentReservation ? (
+    if (error) {
+      return (
+        <div className="text-center">
+          <p className="text-red-500 mb-4">{error}</p>
+          {error.includes("identifique-se") && (
+            <Link href="/selecionar-usuario" passHref>
+              <Button>Ir para a seleção de usuário</Button>
+            </Link>
+          )}
+        </div>
+      );
+    }
+    
+    if (currentReservation) {
+      return (
         <div className="border p-6 rounded-md shadow-lg text-center bg-white dark:bg-gray-800 w-full max-w-md">
-          <p className="text-lg font-semibold mb-2">Sua reserva atual:</p>
+          <p className="text-lg font-semibold mb-2">Sua reserva atual, {currentUser?.name}:</p>
           <p>De: {new Date(currentReservation.data_chegada).toLocaleDateString()}</p>
           <p>Até: {new Date(currentReservation.data_saida).toLocaleDateString()}</p>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">Status: {currentReservation.status}</p>
 
           <div className="mt-6 text-left">
             <h2 className="text-xl font-semibold mb-3">Checklist Obrigatório:</h2>
             <div className="flex items-center space-x-2 mb-2">
-              <Checkbox
-                id="gas"
-                checked={checklistState.gas}
-                onCheckedChange={(checked) => setCheklistState(prev => ({ ...prev, gas: checked as boolean }))}
-              />
-              <label htmlFor="gas" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                Desligou o gás?
-              </label>
+              <Checkbox id="gas" checked={checklistState.gas} onCheckedChange={(checked) => setCheklistState(prev => ({ ...prev, gas: checked as boolean }))} />
+              <label htmlFor="gas">Desligou o gás?</label>
             </div>
             <div className="flex items-center space-x-2 mb-2">
-              <Checkbox
-                id="windows"
-                checked={checklistState.windows}
-                onCheckedChange={(checked) => setCheklistState(prev => ({ ...prev, windows: checked as boolean }))}
-              />
-              <label htmlFor="windows" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                Fechou as janelas?
-              </label>
+              <Checkbox id="windows" checked={checklistState.windows} onCheckedChange={(checked) => setCheklistState(prev => ({ ...prev, windows: checked as boolean }))} />
+              <label htmlFor="windows">Fechou as janelas?</label>
             </div>
             <div className="flex items-center space-x-2 mb-2">
-              <Checkbox
-                id="trash"
-                checked={checklistState.trash}
-                onCheckedChange={(checked) => setCheklistState(prev => ({ ...prev, trash: checked as boolean }))}
-              />
-              <label htmlFor="trash" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                Tirou o lixo?
-              </label>
+              <Checkbox id="trash" checked={checklistState.trash} onCheckedChange={(checked) => setCheklistState(prev => ({ ...prev, trash: checked as boolean }))} />
+              <label htmlFor="trash">Tirou o lixo?</label>
             </div>
           </div>
 
           <div className="mt-6 text-left">
             <h2 className="text-xl font-semibold mb-3">Diário de Bordo (Observações):</h2>
-            <textarea
-              className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+            <Textarea
               placeholder="Ex: 'A lâmpada da varanda queimou', 'Deixamos um fardo de água mineral', etc."
               value={freeComment}
               onChange={(e) => setFreeComment(e.target.value)}
             />
           </div>
 
-          <Button
-            onClick={handleCheckout}
-            disabled={isCheckoutButtonDisabled}
-            className="mt-6 px-8 py-3 w-full"
-          >
+          <Button onClick={handleCheckout} disabled={isCheckoutButtonDisabled} className="mt-6 w-full">
             {isCheckingOut ? "Finalizando..." : "Saindo..."}
           </Button>
           {checkoutSuccess && <p className="text-green-600 mt-4">{checkoutSuccess}</p>}
         </div>
-      ) : (
-        <p className="text-gray-600">Nenhuma reserva com check-in ativo para check-out no momento.</p>
-      )}
+      );
+    }
+    
+    return <p className="text-gray-600">Olá, {currentUser?.name}. Nenhuma reserva com check-in ativo para check-out no momento.</p>;
+  };
+
+  return (
+    <main className="flex min-h-screen flex-col items-center justify-center p-24">
+      <h1 className="text-4xl font-bold mb-8">ItaSummer - Check-out</h1>
+      {renderContent()}
     </main>
   );
 }
